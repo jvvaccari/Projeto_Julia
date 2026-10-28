@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quarto - Modern Board Game</title>
+    <!-- Tailwind CSS for utility styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+
+        /* Modern Glassmorphism & Shadow Effects */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        .board-cell {
+            background: radial-gradient(circle at center, rgba(51, 65, 85, 0.8) 0%, rgba(30, 41, 59, 0.9) 100%);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .board-cell.highlight-placeable:hover {
+            border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+            transform: scale(1.02);
+            cursor: pointer;
+        }
+
+        .winning-cell {
+            animation: pulse-gold 1.5s infinite alternate;
+            border-color: #f59e0b !important;
+        }
+
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); transform: scale(1); }
+            100% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.9); transform: scale(1.04); }
+        }
+
+        /* 3D Visual Rendering for Quarto Pieces */
+        .quarto-piece {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Color Attributes */
+        .piece-light {
+            background: linear-gradient(145deg, #f1f5f9 0%, #cbd5e1 100%);
+            border: 2px solid #e2e8f0;
+            color: #1e293b;
+            box-shadow: 0 6px 12px rgba(255, 255, 255, 0.1), inset 0 2px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .piece-dark {
+            background: linear-gradient(145deg, #334155 0%, #0f172a 100%);
+            border: 2px solid #475569;
+            color: #f8fafc;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Shape Attributes */
+        .piece-square {
+            border-radius: 8px;
+        }
+
+        .piece-round {
+            border-radius: 50%;
+        }
+
+        /* Height Attributes */
+        .piece-tall {
+            height: 4.25rem;
+            width: 4.25rem;
+        }
+
+        .piece-short {
+            height: 2.75rem;
+            width: 2.75rem;
+        }
+
+        /* Hollow Indicator Ring */
+        .piece-hollow::after {
+            content: '';
+            position: absolute;
+            width: 40%;
+            height: 40%;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.85);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        .piece-light.piece-hollow::after {
+            background: rgba(203, 213, 225, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.5);
+        }
+
+        .piece-selectable {
+            cursor: pointer;
+        }
+
+        .piece-selectable:hover {
+            transform: translateY(-6px) scale(1.08);
+            box-shadow: 0 12px 20px rgba(56, 189, 248, 0.3);
+        }
+
+        .piece-selected {
+            outline: 4px solid #38bdf8;
+            outline-offset: 2px;
+            transform: translateY(-4px);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center justify-start min-h-screen">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-sky-400 via-indigo-300 to-amber-300 bg-clip-text text-transparent">
+                QUARTO
+            </h1>
+            <p class="text-xs md:text-sm text-slate-400">Match 4 pieces sharing at least one common attribute</p>
+        </div>
+
+        <!-- Controls / Mode Selector -->
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60 flex items-center gap-1 text-xs md:text-sm">
+                <button id="mode-pvp" onclick="setGameMode('pvp')" class="px-3 py-1.5 rounded-lg transition font-medium text-slate-300 hover:text-white">
+                    👤 vs 👤 Human
+                </button>
+                <button id="mode-mcts" onclick="setGameMode('mcts')" class="px-3 py-1.5 rounded-lg transition font-medium text-slate-300 hover:text-white">
+                    🧠 MCTS AI
+                </button>
+            </div>
+            <button onclick="resetGame()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-1.5 rounded-xl border border-slate-600/50 text-xs md:text-sm font-semibold transition active:scale-95">
+                🔄 New Game
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- Left Column: Status Banner & 4x4 Board -->
+        <section class="lg:col-span-7 flex flex-col items-center gap-4 w-full">
+            
+            <!-- Turn Status Bar -->
+            <div class="w-full glass-panel p-4 rounded-2xl flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div id="player-indicator" class="w-3.5 h-3.5 rounded-full bg-sky-400 animate-pulse"></div>
+                    <div>
+                        <div id="status-title" class="text-xs uppercase font-bold tracking-wider text-slate-400">Current Turn</div>
+                        <div id="status-message" class="text-base md:text-lg font-semibold text-slate-100">
+                            Player 1: Select a piece for opponent
+                        </div>
+                    </div>
+                </div>
+                <div id="ai-thinking" class="hidden flex items-center gap-2 text-xs text-amber-400 font-medium bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
+                    <svg class="animate-spin h-4 w-4 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>AI Computing...</span>
+                </div>
+            </div>
+
+            <!-- 4x4 Game Board -->
+            <div class="glass-panel p-4 md:p-6 rounded-3xl w-full max-w-xl aspect-square grid grid-cols-4 gap-3 md:gap-4 relative">
+                <!-- 16 Cells rendered dynamically -->
+                <div id="board-grid" class="contents"></div>
+            </div>
+        </section>
+
+        <!-- Right Column: Piece In Hand & Available Pieces Rack -->
+        <section class="lg:col-span-5 flex flex-col gap-6 w-full">
+            
+            <!-- Piece in Hand Display -->
+            <div class="glass-panel p-2 rounded-2xl flex flex-col items-center justify-center text-center relative overflow-hidden">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Piece to Place on Board</span>
+                <div id="piece-in-hand-container" class="h-24 w-24 flex items-center justify-center rounded-2xl bg-slate-900/50 border border-slate-700/50">
+                    <span class="text-xs text-slate-500 italic">None Selected</span>
+                </div>
+                <div id="hand-bit-code" class="text-xs font-mono font-bold text-sky-400 mt-2 h-4"></div>
+            </div>
+
+            <!-- Remaining / Available Pieces Grid -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Available Pieces</h2>
+                    <span id="pieces-count" class="text-xs font-mono text-slate-400">16 / 16 remaining</span>
+                </div>
+                <p class="text-xs text-slate-400">Click a piece to hand it over to your opponent:</p>
+                
+                <div id="available-pieces-grid" class="grid grid-cols-4 gap-3 p-2 bg-slate-900/40 rounded-xl border border-slate-800 max-h-[320px] overflow-y-auto">
+                    <!-- Available pieces rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Legend for Attributes -->
+            <div class="glass-panel p-4 rounded-2xl text-xs text-slate-400 grid grid-cols-2 gap-2 border border-slate-800/80">
+                <div class="flex items-center gap-1.5"><span class="font-mono text-amber-300 font-bold">Bit 1:</span> Height (1: Tall / 0: Short)</div>
+                <div class="flex items-center gap-1.5"><span class="font-mono text-amber-300 font-bold">Bit 2:</span> Color (1: Dark / 0: Light)</div>
+                <div class="flex items-center gap-1.5"><span class="font-mono text-amber-300 font-bold">Bit 3:</span> Shape (1: Square / 0: Round)</div>
+                <div class="flex items-center gap-1.5"><span class="font-mono text-amber-300 font-bold">Bit 4:</span> Style (1: Hollow / 0: Solid)</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Winner Modal Overlay -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-md w-full p-6 md:p-8 rounded-3xl text-center flex flex-col items-center gap-4 border border-amber-500/30 shadow-2xl scale-95 transition-transform duration-300 relative" id="win-modal-card">
+            <button type="button" onclick="hideWinModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-700/80 text-slate-200 hover:bg-slate-600 transition text-lg leading-none">×</button>
+            <div class="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-3xl font-bold border border-amber-500/40 mt-4">
+                🏆
+            </div>
+            <div>
+                <h2 id="win-title" class="text-2xl md:text-3xl font-extrabold text-white">Player 1 Wins!</h2>
+                <p id="win-reason" class="text-sm text-amber-300/90 mt-1 font-medium">Matched 4 items on a line!</p>
+            </div>
+            <p class="text-xs text-slate-400">Great strategic foresight! Play another round to test your skills again.</p>
+            <div class="w-full flex gap-3">
+                <button onclick="hideWinModal()" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold rounded-xl transition">
+                    Close
+                </button>
+                <button onclick="resetGame()" class="flex-1 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold rounded-xl transition shadow-lg shadow-indigo-500/30 active:scale-98">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Logic JavaScript -->
+    <script src="quarto_board_game.js"></script>
+</body>
+</html>
