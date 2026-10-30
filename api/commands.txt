@@ -1,1 +1,1 @@
-julia api/main.jl server
+julia main.jl server
